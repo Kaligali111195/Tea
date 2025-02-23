@@ -129,7 +129,7 @@
                                     <button class="add-to-cart" onclick="addToCart('${item.item}', ${item.price}, 'Packed')">Packed</button>`}
                                 </div>
                                 <div class="item-picture">
-                                    <img src="${backendUrl}${item.picture}" alt="${item.item}" style="width: 100px; height: 100px;">
+                                    <img src="${item.picture}" alt="${item.item}" style="width: 100px; height: 100px;">
                                 </div>
                             `;
                             categoryContainer.appendChild(itemElement);
