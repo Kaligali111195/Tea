@@ -5,19 +5,17 @@ const mongoose = require('mongoose');
 const path = require('path');
 const cors = require('cors');
 const cloudinary = require('./cloudinaryConfig');
-require('dotenv').config({ path: path.join(__dirname, '.env') }); // Ensure .env loads
+const fs = require('fs');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Check if .env variables are loading
 console.log('Cloudinary ENV:', process.env.CLOUDINARY_CLOUD_NAME);
 console.log('Mongo URI:', process.env.MONGO_URI);
 
-// Configure Multer for file uploads
 const upload = multer({ dest: 'uploads/' });
 
-// MongoDB Connection
 const mongoUri = process.env.MONGO_URI;
 if (!mongoUri) {
     console.error('❌ MONGO_URI is missing in .env file!');
@@ -29,7 +27,6 @@ mongoose.connect(mongoUri, { useNewUrlParser: true, useUnifiedTopology: true });
 mongoose.connection.on('connected', () => console.log('✅ MongoDB connected'));
 mongoose.connection.on('error', (err) => console.error('❌ MongoDB connection error:', err));
 
-// Define Schema
 const itemSchema = new mongoose.Schema({
     category: String,
     item: String,
@@ -50,7 +47,6 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// Endpoint to add an item
 app.post('/add-item', upload.single('picture'), async (req, res) => {
     try {
         const { category, item, price } = req.body;
@@ -61,6 +57,8 @@ app.post('/add-item', upload.single('picture'), async (req, res) => {
         }
 
         const uploadResult = await cloudinary.uploader.upload(picture.path, { folder: 'items' });
+        fs.unlinkSync(picture.path);
+
         const newItem = new Item({
             category,
             item,
@@ -76,7 +74,6 @@ app.post('/add-item', upload.single('picture'), async (req, res) => {
     }
 });
 
-// Endpoint to get all items
 app.get('/items', async (req, res) => {
     try {
         const items = await Item.find();
@@ -86,24 +83,22 @@ app.get('/items', async (req, res) => {
     }
 });
 
-// Endpoint to remove an item
 app.post('/remove-item', async (req, res) => {
     try {
-        const { item } = req.body;
-        await Item.deleteOne({ item });
+        const { id } = req.body;
+        await Item.findByIdAndDelete(id);
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }
 });
 
-// Endpoint to toggle the 'sold-out' status of an item
 app.post('/toggle-sold-out', async (req, res) => {
     try {
-        const { item } = req.body;
-        const foundItem = await Item.findOne({ item });
+        const { id } = req.body;
+        const foundItem = await Item.findById(id);
 
-        if (!foundItem) throw new Error('Item not found');
+        if (!foundItem) return res.status(404).json({ success: false, message: 'Item not found' });
 
         foundItem.soldOut = !foundItem.soldOut;
         await foundItem.save();
@@ -113,7 +108,6 @@ app.post('/toggle-sold-out', async (req, res) => {
     }
 });
 
-// Endpoint to checkout (place an order)
 app.post('/checkout', async (req, res) => {
     try {
         const { cart } = req.body;
@@ -132,7 +126,6 @@ app.post('/checkout', async (req, res) => {
     }
 });
 
-// Endpoint to get all orders
 app.get('/orders', async (req, res) => {
     try {
         const orders = await Order.find();
@@ -142,7 +135,6 @@ app.get('/orders', async (req, res) => {
     }
 });
 
-// Handle errors
 app.use((req, res) => res.status(404).json({ success: false, message: 'Not Found' }));
 
 app.listen(PORT, () => console.log(`🚀 Server is running on port ${PORT}`));
