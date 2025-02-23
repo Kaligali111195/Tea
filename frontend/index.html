@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Index Page</title>
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+    <div class="sidebar">
+        <h2>Categories</h2>
+        <ul id="category-list">
+            <!-- Categories will be dynamically added here -->
+        </ul>
+    </div>
+    <div class="main-content">
+        <div class="container">
+            <h1>Items</h1>
+            <div id="items-container">
+                <!-- Items will be dynamically added here -->
+            </div>
+        </div>
+        <button id="cart-button">Cart <span id="cart-count" class="cart-count">0</span></button>
+        <div id="cart-container" class="container" style="display: none;">
+            <h2>Cart</h2>
+            <div id="cart-items"></div>
+            <div id="total-amount" class="total-amount"></div>
+            <button id="checkout-button" class="checkout-button">Proceed to Checkout</button>
+        </div>
+    </div>
+    <script>
+        let cart = [];
+        const backendUrl = 'http://localhost:3000'; // Backend URL
+
+        document.getElementById('cart-button').addEventListener('click', function() {
+            const cartContainer = document.getElementById('cart-container');
+            cartContainer.style.display = cartContainer.style.display === 'none' ? 'block' : 'none';
+            displayCart();
+        });
+
+        function addToCart(item, price, type) {
+            cart.push({ item, price, type });
+            displayCart();
+        }
+
+        function removeFromCart(index) {
+            cart.splice(index, 1);
+            displayCart();
+        }
+
+        function displayCart() {
+            const cartItems = document.getElementById('cart-items');
+            const totalAmount = document.getElementById('total-amount');
+            const cartCount = document.getElementById('cart-count');
+            cartItems.innerHTML = '';
+            let total = 0;
+            cart.forEach((cartItem, index) => {
+                total += cartItem.price;
+                const cartItemElement = document.createElement('div');
+                cartItemElement.className = 'cart-item';
+                cartItemElement.innerHTML = `${cartItem.item} (${cartItem.type}) - $${cartItem.price} <button class="remove-button" onclick="removeFromCart(${index})">Remove</button>`;
+                cartItems.appendChild(cartItemElement);
+            });
+            totalAmount.innerHTML = `Total: $${total}`;
+            cartCount.textContent = cart.length;
+        }
+
+        document.getElementById('checkout-button').addEventListener('click', function() {
+            fetch(`${backendUrl}/checkout`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ cart })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Order placed successfully');
+                    cart = [];
+                    displayCart();
+                } else {
+                    alert('Failed to place order');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while processing the payment: ' + error.message);
+            });
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            fetch(`${backendUrl}/items`) // Ensure the correct URL
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    const categoryList = document.getElementById('category-list');
+                    const itemsContainer = document.getElementById('items-container');
+                    const categories = {};
+
+                    data.items.forEach(item => {
+                        if (!categories[item.category]) {
+                            categories[item.category] = [];
+                        }
+                        categories[item.category].push(item);
+                    });
+
+                    for (const category in categories) {
+                        const categoryItem = document.createElement('li');
+                        categoryItem.innerHTML = `<a href="#${category}" onclick="highlightCategory('${category}')">${category}</a>`;
+                        categoryList.appendChild(categoryItem);
+
+                        const categoryContainer = document.createElement('div');
+                        categoryContainer.id = category;
+                        categoryContainer.innerHTML = `<h2>${category}</h2>`;
+                        categories[category].forEach(item => {
+                            const itemElement = document.createElement('div');
+                            itemElement.className = 'item';
+                            itemElement.innerHTML = `
+                                <div class="item-details">
+                                    ${item.item} - $${item.price}
+                                    <br>
+                                    ${item.soldOut ? '<span class="sold-out">Sold Out</span>' : `
+                                    <button class="add-to-cart" onclick="addToCart('${item.item}', ${item.price}, 'Dining')">Dining</button>
+                                    <button class="add-to-cart" onclick="addToCart('${item.item}', ${item.price}, 'Packed')">Packed</button>`}
+                                </div>
+                                <div class="item-picture">
+                                    <img src="${backendUrl}${item.picture}" alt="${item.item}" style="width: 100px; height: 100px;">
+                                </div>
+                            `;
+                            categoryContainer.appendChild(itemElement);
+                        });
+                        itemsContainer.appendChild(categoryContainer);
+                    }
+
+                    // Highlight the current category link
+                    const currentCategory = window.location.hash.substring(1);
+                    if (currentCategory) {
+                        highlightCategory(currentCategory);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching items:', error);
+                    alert('An error occurred while fetching items: ' + error.message);
+                });
+        });
+
+        function highlightCategory(category) {
+            const links = document.querySelectorAll('#category-list a');
+            links.forEach(link => {
+                link.classList.remove('active');
+            });
+            const activeLink = document.querySelector(`#category-list a[href="#${category}"]`);
+            if (activeLink) {
+                activeLink.classList.add('active');
+            }
+        }
+    </script>
+</body>
+</html>

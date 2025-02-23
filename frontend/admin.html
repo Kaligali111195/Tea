@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Page</title>
+    <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+    <div class="sidebar">
+        <h2>Admin Panel</h2>
+        <ul>
+            <li><a href="#dashboard">Dashboard</a></li>
+            <li><a href="#orders">Orders</a></li>
+            <li><a href="#summary">Summary</a></li>
+            <li><a href="#items">Items</a></li>
+        </ul>
+    </div>
+    <div class="main-content">
+        <div id="dashboard" class="container">
+            <h1>Dashboard</h1>
+            <h2>Add New Item</h2>
+            <form id="add-item-form" enctype="multipart/form-data">
+                <input type="text" id="category-input" placeholder="Enter category" required>
+                <input type="text" id="item-input" placeholder="Enter item" required>
+                <input type="number" id="price-input" placeholder="Enter price" required>
+                <input type="file" id="picture-input" accept="image/jpeg, image/png, image/gif, image/webp" required>
+                <button type="submit">Add Item</button>
+            </form>
+        </div>
+        <div id="orders" class="container">
+            <h1>Orders</h1>
+            <div id="orders-container"></div>
+        </div>
+        <div id="summary" class="container">
+            <h1>Summary</h1>
+        </div>
+        <div id="items" class="container">
+            <h1>Items</h1>
+            <div id="items-container"></div>
+        </div>
+    </div>
+    <script>
+        const backendUrl = 'http://localhost:3000'; // Backend URL
+
+        document.getElementById('add-item-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const category = document.getElementById('category-input').value;
+            const item = document.getElementById('item-input').value;
+            const price = document.getElementById('price-input').value;
+            const picture = document.getElementById('picture-input').files[0];
+
+            const formData = new FormData();
+            formData.append('category', category);
+            formData.append('item', item);
+            formData.append('price', price);
+            formData.append('picture', picture);
+
+            fetch(`${backendUrl}/add-item`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Item added successfully');
+                    fetchItems();
+                } else {
+                    alert('Failed to add item');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while adding the item: ' + error.message);
+            });
+        });
+
+        function fetchItems() {
+            fetch(`${backendUrl}/items`)
+                .then(response => response.json())
+                .then(data => {
+                    const container = document.getElementById('items-container');
+                    container.innerHTML = ''; // Clear existing items
+                    data.items.forEach(item => {
+                        const itemElement = document.createElement('div');
+                        itemElement.innerHTML = `
+                            <img src="${item.picture}" alt="${item.item}" style="width: 100px; height: 100px;">
+                            ${item.category} - ${item.item} - $${item.price}
+                            <button onclick="removeItem('${item._id}')">Remove</button>
+                            <button onclick="toggleSoldOut('${item._id}')">${item.soldOut ? 'Mark as Available' : 'Mark as Sold Out'}</button>
+                        `;
+                        container.appendChild(itemElement);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error fetching items:', error);
+                });
+        }
+
+        function removeItem(itemId) {
+            fetch(`${backendUrl}/remove-item`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ id: itemId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Item removed successfully');
+                    fetchItems();
+                } else {
+                    alert('Failed to remove item');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+
+        function toggleSoldOut(itemId) {
+            fetch(`${backendUrl}/toggle-sold-out`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ id: itemId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Item status updated successfully');
+                    fetchItems();
+                } else {
+                    alert('Failed to update item status');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+
+        function fetchOrders() {
+            fetch(`${backendUrl}/orders`)
+                .then(response => response.json())
+                .then(data => {
+                    const container = document.getElementById('orders-container');
+                    container.innerHTML = ''; // Clear existing orders
+                    data.orders.forEach(order => {
+                        const orderElement = document.createElement('div');
+                        orderElement.innerHTML = `
+                            <h3>Order #${order.id}</h3>
+                            <div>${order.items.map(item => `${item.item} - $${item.price}`).join('<br>')}</div>
+                            <div>Total: $${order.total}</div>
+                        `;
+                        container.appendChild(orderElement);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error fetching orders:', error);
+                });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchItems();
+            fetchOrders();
+        });
+    </script>
+</body>
+</html>
